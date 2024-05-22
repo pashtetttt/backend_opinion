@@ -4,7 +4,7 @@ import io
 import json
 from fastapi.middleware.cors import CORSMiddleware
 from applicaton_methods import owner_and_post_ids_from_url, get_user_by_id, get_comments, take_info_for_graph
-
+from reddit_data import fetch_reddit_comments
 origins = [
     "http://localhost:8080",
 ]
@@ -39,3 +39,9 @@ async def get_graph_by_url(owner_id: int, post_id: int, type_of_model: str):
     # get data from post
     ##### create json
     # deliver content   
+
+@app.get("/get_graph_for_reddit/{submission_id}/{type_of_model}")
+async def get_reddit_graph(submission_id: str, type_of_model: str):
+    comments = fetch_reddit_comments(submission_id=submission_id)
+    response = json.dumps(comments)
+    return Response(content=response)

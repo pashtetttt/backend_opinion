@@ -1,6 +1,8 @@
 import requests
 import json
+import pickle
 import joblib
+import xgboost as xgb
 from transformers import BertTokenizer, BertForSequenceClassification
 from exceptions import VKUrlFormatException
 import re
@@ -31,10 +33,9 @@ def get_user_by_id(user_id):
 def take_info_for_graph(json_response, type_of_model):
     count = json_response["count"]
     items = json_response["items"]
+    class_user_text = []
     if type_of_model == "russian_news":
         loaded_model = joblib.load("text_classification_model.pkl")
-        class_user_text = []
-        user_comment = {}
         for i in range(99):
             try:
                 user_id = items[i]["from_id"]
@@ -50,6 +51,35 @@ def take_info_for_graph(json_response, type_of_model):
             except:
                 continue
         return class_user_text
+    if type_of_model == "lenta_news":
+        model = xgb.Booster()
+        model.load_model("/home/pashtet/projects/diploma/xgboost_model_10_iterations.model")
+        with open('count_vectorizer.pkl', 'rb') as f:
+            vectorizer = pickle.load(f)
+        with open('label_encoder.pkl', 'rb') as f:
+            label_encoder = pickle.load(f)
+        for i in range(99):
+            try:
+                user_id = items[i]["from_id"]
+                user_name = get_user_by_id(user_id=user_id)
+                comment = items[i]["text"]
+                comment_class = [comment]
+                X_new_counts = vectorizer.transform(comment_class)
+                dnew = xgb.DMatrix(X_new_counts)
+                predictions = model.predict(dnew)
+                predicted_labels = label_encoder.inverse_transform(predictions.astype(int))
+                label = predicted_labels[0]
+                properties = {
+                "id": user_name,
+                "comment": comment,
+                "class": label
+                }
+                class_user_text.append(properties)
+            except:
+                print(f"error: {label}", label)
+                continue
+        return class_user_text
+
 
 
 def define_model(model_type):
