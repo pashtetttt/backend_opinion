@@ -1,11 +1,14 @@
 import praw
 from transformers import pipeline
+import torch
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 
 reddit = praw.Reddit(client_id="0J7GpdceeSnKD4lqLFQJZg",
                         client_secret="lpCPg0PP822S5AXC5Fzb0V8dnbqQ3Q",
                         user_agent="pashtetttt")
 
-# Function to fetch Reddit comments
 def fetch_reddit_comments(submission_id, type_of_model):
     submission = reddit.submission(id=submission_id)
     submission.comments.replace_more(limit=None)
@@ -27,7 +30,26 @@ def fetch_reddit_comments(submission_id, type_of_model):
             for reply in comment.replies:
                 extract_comments(reply, comment.id)
         elif type_of_model == "cyberbullying":
-            pass
+            df = pd.read_csv('./datasets/cyberbullying_tweets.csv')
+            label_encoder = LabelEncoder()
+            label_encoder.fit(df['cyberbullying_type'])
+            tokenizer = DistilBertTokenizer.from_pretrained('./cyberbullying_tokenizer')
+            model = DistilBertForSequenceClassification.from_pretrained('./cyberbullying_model')
+            inputs = tokenizer([comment.body], padding=True, truncation=True, return_tensors="pt")
+            with torch.no_grad():
+                outputs = model(**inputs)
+            predictions = torch.argmax(outputs.logits, dim=1)
+            predicted_label = label_encoder.inverse_transform(predictions.numpy())
+            comment_data = {
+                "id": comment.id,
+                "body": comment.body,
+                "class": predicted_label[0],
+                "parent_id": parent_id,
+                "replies": []
+            }
+            comments.append(comment_data)
+            for reply in comment.replies:
+                extract_comments(reply, comment.id)
         else:
             comment_data = {
                 "id": comment.id,

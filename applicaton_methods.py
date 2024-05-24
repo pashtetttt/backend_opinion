@@ -32,8 +32,6 @@ def get_user_by_id(user_id):
         return None    
     
 def take_info_for_graph(json_response, type_of_model):
-    count = json_response["count"]
-
     if type_of_model == "russian_news":
         items = json_response["items"]
         class_user_text = []
